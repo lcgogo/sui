@@ -542,12 +542,15 @@ impl AuthorityPerEpochStore {
         &self.execution_component.native_functions
     }
 
-    pub async fn acquire_tx_guard(
+    pub async fn acquire_tx_guards(
         &self,
-        cert: &VerifiedExecutableTransaction,
-    ) -> SuiResult<CertTxGuard> {
-        let digest = cert.digest();
-        Ok(CertTxGuard(self.acquire_tx_lock(digest).await))
+        certs: &[VerifiedExecutableTransaction],
+    ) -> SuiResult<Vec<CertTxGuard>> {
+        let mut locks = Vec::with_capacity(certs.len());
+        for cert in certs {
+            locks.push(CertTxGuard(self.acquire_tx_lock(&cert.digest()).await));
+        }
+        Ok(locks)
     }
 
     /// Acquire the lock for a tx without writing to the WAL.

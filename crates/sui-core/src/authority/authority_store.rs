@@ -626,19 +626,26 @@ impl AuthorityStore {
     /// Attempts to acquire execution lock for an executable transaction.
     /// Returns the lock if the transaction is matching current executed epoch
     /// Returns None otherwise
-    pub async fn execution_lock_for_executable_transaction(
+    pub async fn execution_lock_for_executable_transactions(
         &self,
-        transaction: &VerifiedExecutableTransaction,
+        transactions: &[VerifiedExecutableTransaction],
     ) -> SuiResult<ExecutionLockReadGuard> {
-        let lock = self.execution_lock.read().await;
-        if *lock == transaction.auth_sig().epoch() {
-            Ok(lock)
-        } else {
-            Err(SuiError::WrongEpoch {
-                expected_epoch: *lock,
-                actual_epoch: transaction.auth_sig().epoch(),
-            })
+        if transactions.is_empty() {
+            warn!("called execution_lock_for_executable_transactions with empty transactions");
         }
+
+        let lock = self.execution_lock.read().await;
+
+        for txn in transactions {
+            if txn.auth_sig().epoch() != *lock {
+                return Err(SuiError::WrongEpoch {
+                    expected_epoch: *lock,
+                    actual_epoch: txn.auth_sig().epoch(),
+                });
+            }
+        }
+
+        Ok(lock)
     }
 
     pub async fn execution_lock_for_reconfiguration(&self) -> ExecutionLockWriteGuard {

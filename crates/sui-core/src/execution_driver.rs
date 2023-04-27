@@ -8,7 +8,10 @@ use std::{
 };
 
 use mysten_metrics::{monitored_scope, spawn_monitored_task};
-use sui_types::{digests::TransactionEffectsDigest, messages::VerifiedExecutableTransaction};
+use sui_types::{
+    digests::TransactionEffectsDigest,
+    messages::{MultiTxBatch, VerifiedExecutableTransaction},
+};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::OwnedSemaphorePermit;
 use tokio::{
@@ -107,21 +110,24 @@ pub async fn execution_process(
 async fn execution_task(
     _permit: OwnedSemaphorePermit,
     authority: Arc<AuthorityState>,
-    certificate: VerifiedExecutableTransaction,
+    certificates: Vec<VerifiedExecutableTransaction>,
     expected_effects_digest: Option<TransactionEffectsDigest>,
 ) {
-    let digest = *certificate.digest();
+    let batch_id = certificates.batch_id();
     // TODO: Ideally execution_driver should own a copy of epoch store and recreate each epoch.
     let epoch_store = authority.load_epoch_store_one_call_per_task();
     let _scope = monitored_scope("ExecutionDriver::task");
-    if let Ok(true) = authority.is_tx_already_executed(&digest) {
-        return;
-    }
+
+    // TODO: Do we still need this check?
+    // if let Ok(true) = authority.is_tx_already_executed(&digest) {
+    //     return;
+    // }
+
     let mut attempts = 0;
     loop {
         attempts += 1;
         let res = authority
-            .try_execute_immediately(&certificate, expected_effects_digest, &epoch_store)
+            .try_execute_immediately(certificates, expected_effects_digest, &epoch_store)
             .await;
         if let Err(e) = res {
             if attempts == EXECUTION_MAX_ATTEMPTS {
