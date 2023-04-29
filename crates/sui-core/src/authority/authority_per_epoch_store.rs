@@ -3,6 +3,7 @@
 
 use futures::future::{join_all, select, Either};
 use futures::FutureExt;
+use itertools::izip;
 use narwhal_executor::ExecutionIndices;
 use narwhal_types::Round;
 use parking_lot::RwLock;
@@ -544,7 +545,7 @@ impl AuthorityPerEpochStore {
 
     pub async fn acquire_tx_guards(
         &self,
-        certs: impl ExactSizeIterator<Item = &VerifiedExecutableTransaction>
+        certs: impl ExactSizeIterator<Item = &VerifiedExecutableTransaction>,
     ) -> SuiResult<Vec<CertTxGuard>> {
         let mut locks = Vec::with_capacity(certs.len());
         for cert in certs {
@@ -602,23 +603,29 @@ impl AuthorityPerEpochStore {
 
     pub fn insert_tx_cert_and_effects_signature(
         &self,
-        tx_digest: &TransactionDigest,
-        cert_sig: Option<&AuthorityStrongQuorumSignInfo>,
-        effects_signature: Option<&AuthoritySignInfo>,
+        transactions: &[VerifiedExecutableTransaction],
+        effects_signatures: Option<&[AuthoritySignInfo]>,
     ) -> SuiResult {
         let mut batch = self.tables.effects_signatures.batch();
-        if let Some(cert_sig) = cert_sig {
-            batch.insert_batch(
-                &self.tables.transaction_cert_signatures,
-                [(tx_digest, cert_sig)],
-            )?;
+        let mut effects_iter = effects_signatures.map(|e| e.iter());
+
+        for tx in transactions {
+            let tx_digest = tx.digest();
+            if let Some(cert_sig) = tx.certificate_sig() {
+                batch.insert_batch(
+                    &self.tables.transaction_cert_signatures,
+                    [(tx_digest, cert_sig)],
+                )?;
+            }
+            if let Some(effects_iter) = &mut effects_iter {
+                let effects_signature = effects_iter.next().unwrap();
+                batch.insert_batch(
+                    &self.tables.effects_signatures,
+                    [(tx_digest, effects_signature)],
+                )?;
+            }
         }
-        if let Some(effects_signature) = effects_signature {
-            batch.insert_batch(
-                &self.tables.effects_signatures,
-                [(tx_digest, effects_signature)],
-            )?;
-        }
+        assert!(effects_iter.is_none());
         batch.write()?;
         Ok(())
     }
@@ -738,8 +745,10 @@ impl AuthorityPerEpochStore {
     }
 
     /// Deletes one pending certificate.
-    pub fn remove_pending_execution(&self, digest: &TransactionDigest) -> SuiResult<()> {
-        self.tables.pending_execution.remove(digest)?;
+    pub fn remove_pending_execution_digests(&self, digests: &[TransactionDigest]) -> SuiResult<()> {
+        let mut batch = self.tables.pending_execution.batch();
+        batch.delete_batch(&self.tables.pending_execution, digests)?;
+        batch.write()?;
         Ok(())
     }
 

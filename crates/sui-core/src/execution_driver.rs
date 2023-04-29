@@ -100,7 +100,8 @@ pub async fn execution_process(
         spawn_monitored_task!(execution_task(
             permit,
             authority,
-            vec![(certificate, expected_effects_digest)],
+            vec![certificate],
+            vec![expected_effects_digest],
         )
         .instrument(error_span!("execution_driver", tx_digest = ?digest)));
     }
@@ -109,9 +110,10 @@ pub async fn execution_process(
 async fn execution_task(
     _permit: OwnedSemaphorePermit,
     authority: Arc<AuthorityState>,
-    certificates: Vec<(VerifiedExecutableTransaction, Option<TransactionEffectsDigest>)>,
+    transactions: Vec<VerifiedExecutableTransaction>,
+    expected_effects_digests: Vec<Option<TransactionEffectsDigest>>,
 ) {
-    let batch_id = certificates.batch_id();
+    let batch_id = transactions.batch_id();
     // TODO: Ideally execution_driver should own a copy of epoch store and recreate each epoch.
     let epoch_store = authority.load_epoch_store_one_call_per_task();
     let _scope = monitored_scope("ExecutionDriver::task");
@@ -125,7 +127,11 @@ async fn execution_task(
     loop {
         attempts += 1;
         let res = authority
-            .try_execute_immediately(certificates, &epoch_store)
+            .try_execute_immediately(
+                transactions.clone(),
+                expected_effects_digests.clone(),
+                &epoch_store,
+            )
             .await;
         if let Err(e) = res {
             if attempts == EXECUTION_MAX_ATTEMPTS {
@@ -178,7 +184,8 @@ impl ExecutionDispatcher {
                 spawn_monitored_task!(execution_task(
                     permit,
                     authority,
-                    vec![(certificate, expected_effects_digest)],
+                    vec![certificate],
+                    vec![expected_effects_digest],
                 )
                 .instrument(error_span!("execution_driver", tx_digest = ?digest)));
                 return;

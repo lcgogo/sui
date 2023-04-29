@@ -810,7 +810,7 @@ impl AuthorityStore {
     pub async fn update_state(
         &self,
         inner_temporary_stores: &[InnerTemporaryStore],
-        transactions: &[VerifiedTransaction],
+        transactions: &[VerifiedExecutableTransaction],
         effects: &[TransactionEffects],
     ) -> SuiResult {
         let _locks = self
@@ -827,7 +827,10 @@ impl AuthorityStore {
             let transaction_digest = transaction.digest();
             write_batch.insert_batch(
                 &self.perpetual_tables.transactions,
-                iter::once((transaction_digest, transaction.serializable_ref())),
+                iter::once((
+                    transaction_digest,
+                    transaction.clone().into_unsigned().serializable_ref(),
+                )),
             )?;
 
             // Add batched writes for objects and locks.

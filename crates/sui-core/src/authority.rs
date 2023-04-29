@@ -850,6 +850,8 @@ impl AuthorityState {
         }
 
         // remove executed txns from the list
+        // Suppress clippy warning - need range loop to use swap_remove()
+        #[allow(clippy::needless_range_loop)]
         for i in 0..num_txns {
             if i >= transactions.len() {
                 break;
@@ -893,7 +895,7 @@ impl AuthorityState {
         )
         .await?;
 
-        let results_iter = izip!(effects.into_iter(), execution_errors.into_iter());
+        let mut results_iter = izip!(effects.into_iter(), execution_errors.into_iter());
         let mut execution_errors_ret = Vec::with_capacity(num_txns);
 
         for effects_mut in executed_effects.iter_mut() {
@@ -914,7 +916,10 @@ impl AuthorityState {
         );
         assert_eq!(execution_errors_ret.len(), num_txns);
 
-        Ok((executed_effects, execution_errors_ret))
+        Ok((
+            executed_effects.into_iter().map(|e| e.unwrap()).collect(),
+            execution_errors_ret,
+        ))
     }
 
     async fn commit_certs_and_notify(
@@ -981,6 +986,7 @@ impl AuthorityState {
             .notify_commit(&digests, &output_keys, epoch_store);
 
         // index certificate
+        /*
         let _ = self
             .post_process_one_tx(
                 transactions,
@@ -992,6 +998,7 @@ impl AuthorityState {
             )
             .await
             .tap_err(|e| error!("tx post processing failed: {e}"));
+        */
 
         // Update metrics.
         self.metrics.total_effects.inc();
@@ -1001,9 +1008,12 @@ impl AuthorityState {
             self.metrics.shared_obj_tx.inc();
         }
 
-        if transactions.is_sponsored_tx() {
-            self.metrics.sponsored_tx.inc();
-        }
+        self.metrics.sponsored_tx.inc_by(
+            transactions
+                .iter()
+                .filter(|cert| cert.is_sponsored_tx())
+                .count() as u64,
+        );
 
         self.metrics
             .num_input_objs
@@ -1011,14 +1021,11 @@ impl AuthorityState {
         self.metrics
             .num_shared_objects
             .observe(shared_object_count as f64);
-        self.metrics.batch_size.observe(
-            certificate
-                .data()
-                .intent_message()
-                .value
-                .kind()
-                .num_commands() as f64,
-        );
+        transactions.iter().for_each(|t| {
+            self.metrics
+                .batch_size
+                .observe(t.data().intent_message().value.kind().num_commands() as f64)
+        });
 
         Ok(())
     }
@@ -1047,7 +1054,7 @@ impl AuthorityState {
         let _metrics_guard = self.metrics.prepare_certificate_latency.start_timer();
 
         let mut temporary_stores = Vec::new();
-        let mut effects = Vec::new();
+        let mut returned_effects = Vec::new();
         let mut execution_errors = Vec::new();
 
         for (certificate, expected_effects_digest) in izip!(certificates, expected_effects_digests)
@@ -1096,7 +1103,7 @@ impl AuthorityState {
                 );
 
             if let Some(expected_effects_digest) = expected_effects_digest {
-                if effects.digest() != expected_effects_digest {
+                if effects.digest() != *expected_effects_digest {
                     error!(
                         ?tx_digest,
                         ?expected_effects_digest,
@@ -1113,10 +1120,10 @@ impl AuthorityState {
             }
 
             temporary_stores.push(inner_temp_store);
-            effects.push(effects);
-            execution_errors.push(execution_error_opt);
+            returned_effects.push(effects);
+            execution_errors.push(execution_error_opt.err());
         }
-        Ok((temporary_stores, effects, execution_errors))
+        Ok((temporary_stores, returned_effects, execution_errors))
     }
 
     pub async fn dry_exec_transaction(
@@ -3004,35 +3011,43 @@ impl AuthorityState {
     // Returns coin objects for indexing for fullnode if indexing is enabled.
     fn fullnode_only_get_tx_coins_for_indexing(
         &self,
-        inner_temporary_store: &InnerTemporaryStore,
+        inner_temporary_stores: &[InnerTemporaryStore],
         epoch_store: &Arc<AuthorityPerEpochStore>,
-    ) -> Option<TxCoins> {
+    ) -> Option<Vec<TxCoins>> {
         if self.indexes.is_none() || self.is_validator(epoch_store) {
             return None;
         }
-        let written_coin_objects = inner_temporary_store
-            .written
-            .iter()
-            .filter_map(|(k, v)| {
-                if v.1.is_coin() {
-                    Some((*k, v.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect::<WrittenObjects>();
-        let input_coin_objects = inner_temporary_store
-            .objects
-            .iter()
-            .filter_map(|(k, v)| {
-                if v.is_coin() {
-                    Some((*k, v.clone()))
-                } else {
-                    None
-                }
-            })
-            .collect::<ObjectMap>();
-        Some((input_coin_objects, written_coin_objects))
+
+        Some(
+            inner_temporary_stores
+                .iter()
+                .map(|inner_temporary_store| {
+                    let written_coin_objects = inner_temporary_store
+                        .written
+                        .iter()
+                        .filter_map(|(k, v)| {
+                            if v.1.is_coin() {
+                                Some((*k, v.clone()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<WrittenObjects>();
+                    let input_coin_objects = inner_temporary_store
+                        .objects
+                        .iter()
+                        .filter_map(|(k, v)| {
+                            if v.is_coin() {
+                                Some((*k, v.clone()))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<ObjectMap>();
+                    (input_coin_objects, written_coin_objects)
+                })
+                .collect::<Vec<_>>(),
+        )
     }
 
     /// Commit effects of transaction execution to data store.
@@ -3040,52 +3055,45 @@ impl AuthorityState {
     pub(crate) async fn commit_certificates(
         &self,
         inner_temporary_stores: &[InnerTemporaryStore],
-        certificate: &[VerifiedExecutableTransaction],
+        transactions: &[VerifiedExecutableTransaction],
         effects: &[TransactionEffects],
         epoch_store: &Arc<AuthorityPerEpochStore>,
-    ) -> SuiResult<Option<TxCoins>> {
+    ) -> SuiResult<Option<Vec<TxCoins>>> {
         let _metrics_guard = self.metrics.commit_certificate_latency.start_timer();
 
-        let tx_digest = certificate.digest();
-
-        let effects_sigs = if self.is_validator(epoch_store) {
-        } else {
-        };
-
         // Only need to sign effects if we are a validator.
-        let effects_sig = if self.is_validator(epoch_store) {
-            Some(AuthoritySignInfo::new(
-                epoch_store.epoch(),
-                effects,
-                Intent::sui_app(IntentScope::TransactionEffects),
-                self.name,
-                &*self.secret,
-            ))
+        let effects_sigs = if self.is_validator(epoch_store) {
+            Some(
+                effects
+                    .iter()
+                    .map(|e| {
+                        AuthoritySignInfo::new(
+                            epoch_store.epoch(),
+                            e,
+                            Intent::sui_app(IntentScope::TransactionEffects),
+                            self.name,
+                            &*self.secret,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            )
         } else {
             None
         };
 
         // Returns coin objects for indexing for fullnode if indexing is enabled.
         let tx_coins =
-            self.fullnode_only_get_tx_coins_for_indexing(&inner_temporary_store, epoch_store);
+            self.fullnode_only_get_tx_coins_for_indexing(inner_temporary_stores, epoch_store);
 
         // The insertion to epoch_store is not atomic with the insertion to the perpetual store. This is OK because
         // we insert to the epoch store first. And during lookups we always look up in the perpetual store first.
-        epoch_store.insert_tx_cert_and_effects_signature(
-            tx_digest,
-            certificate.certificate_sig(),
-            effects_sig.as_ref(),
-        )?;
+        epoch_store.insert_tx_cert_and_effects_signature(transactions, effects_sigs.as_deref())?;
 
         // Allow testing what happens if we crash here.
         fail_point_async!("crash");
 
         self.database
-            .update_state(
-                inner_temporary_store,
-                &certificate.clone().into_unsigned(),
-                effects,
-            )
+            .update_state(inner_temporary_stores, transactions, effects)
             .await
             .tap_ok(|_| {
                 debug!("commit_certificate finished");
@@ -3547,13 +3555,18 @@ impl AuthorityState {
             ));
         }
 
+        let executable_txns = &[executable_tx];
         let execution_guard = self
             .database
-            .execution_lock_for_executable_transaction(&executable_tx)
+            .execution_lock_for_executable_transactions(executable_txns)
             .await?;
-        let (temporary_store, effects, _execution_error_opt) = self
-            .prepare_certificates(&execution_guard, &[executable_tx], &[None], epoch_store)
+        let (temporary_stores, effects, _execution_error_opt) = self
+            .prepare_certificates(&execution_guard, executable_txns, &[None], epoch_store)
             .await?;
+
+        let temporary_store = temporary_stores.into_iter().next().unwrap();
+        let effects = effects.into_iter().next().unwrap();
+
         let system_obj = temporary_store
             .get_sui_system_state_object()
             .expect("change epoch tx must write to system object");
