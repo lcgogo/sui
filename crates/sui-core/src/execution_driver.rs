@@ -131,7 +131,7 @@ async fn execution_task(
             .await;
         if let Err(e) = res {
             if attempts == EXECUTION_MAX_ATTEMPTS {
-                panic!("Failed to execute certified transaction {digest:?} after {attempts} attempts! error={e} certificate={certificate:?}");
+                panic!("Failed to execute transaction batch {batch_id:?} after {attempts} attempts! error={e} certificate={certificate:?}");
             }
             // Assume only transient failure can happen. Permanent failure is probably
             // a bug. There is nothing that can be done to recover from permanent failures.
