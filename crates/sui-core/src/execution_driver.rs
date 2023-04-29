@@ -100,8 +100,7 @@ pub async fn execution_process(
         spawn_monitored_task!(execution_task(
             permit,
             authority,
-            certificate,
-            expected_effects_digest
+            vec![(certificate, expected_effects_digest)],
         )
         .instrument(error_span!("execution_driver", tx_digest = ?digest)));
     }
@@ -110,8 +109,7 @@ pub async fn execution_process(
 async fn execution_task(
     _permit: OwnedSemaphorePermit,
     authority: Arc<AuthorityState>,
-    certificates: Vec<VerifiedExecutableTransaction>,
-    expected_effects_digest: Option<TransactionEffectsDigest>,
+    certificates: Vec<(VerifiedExecutableTransaction, Option<TransactionEffectsDigest>)>,
 ) {
     let batch_id = certificates.batch_id();
     // TODO: Ideally execution_driver should own a copy of epoch store and recreate each epoch.
@@ -127,15 +125,15 @@ async fn execution_task(
     loop {
         attempts += 1;
         let res = authority
-            .try_execute_immediately(certificates, expected_effects_digest, &epoch_store)
+            .try_execute_immediately(certificates, &epoch_store)
             .await;
         if let Err(e) = res {
             if attempts == EXECUTION_MAX_ATTEMPTS {
-                panic!("Failed to execute transaction batch {batch_id:?} after {attempts} attempts! error={e} certificate={certificate:?}");
+                panic!("Failed to execute transaction batch {batch_id:?} after {attempts} attempts! error={e}");
             }
             // Assume only transient failure can happen. Permanent failure is probably
             // a bug. There is nothing that can be done to recover from permanent failures.
-            error!(tx_digest=?digest, "Failed to execute certified transaction {digest:?}! attempt {attempts}, {e}");
+            error!("Failed to execute transaction batch {batch_id:?}! attempt {attempts}, {e}");
             sleep(EXECUTION_FAILURE_RETRY_INTERVAL).await;
         } else {
             break;
@@ -180,8 +178,7 @@ impl ExecutionDispatcher {
                 spawn_monitored_task!(execution_task(
                     permit,
                     authority,
-                    certificate,
-                    expected_effects_digest
+                    vec![(certificate, expected_effects_digest)],
                 )
                 .instrument(error_span!("execution_driver", tx_digest = ?digest)));
                 return;

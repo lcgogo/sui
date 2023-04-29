@@ -544,11 +544,11 @@ impl AuthorityPerEpochStore {
 
     pub async fn acquire_tx_guards(
         &self,
-        certs: &[VerifiedExecutableTransaction],
+        certs: impl ExactSizeIterator<Item = &VerifiedExecutableTransaction>
     ) -> SuiResult<Vec<CertTxGuard>> {
         let mut locks = Vec::with_capacity(certs.len());
         for cert in certs {
-            locks.push(CertTxGuard(self.acquire_tx_lock(&cert.digest()).await));
+            locks.push(CertTxGuard(self.acquire_tx_lock(cert.digest()).await));
         }
         Ok(locks)
     }

@@ -3120,15 +3120,14 @@ pub struct SystemStateRequest {
 // NOTE: do not add Hash or Eq or anything like that - this is only for logging.
 // Collisions are possible!
 #[derive(Clone, Copy)]
-struct BatchId(u64);
+pub struct BatchId(u64);
 
 impl std::fmt::Debug for BatchId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:016x}", self.0)
     }
 }
-
-trait MultiTxBatch {
+pub trait MultiTxBatch {
     fn batch_id(&self) -> BatchId;
 }
 

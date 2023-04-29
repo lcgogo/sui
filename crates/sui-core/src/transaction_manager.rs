@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+use itertools::izip;
 use mysten_metrics::monitored_scope;
 use parking_lot::RwLock;
 use sui_types::{
@@ -545,8 +546,8 @@ impl TransactionManager {
     /// Notifies TransactionManager about a transaction that has been committed.
     pub(crate) fn notify_commit(
         &self,
-        digest: &TransactionDigest,
-        output_object_keys: Vec<InputKey>,
+        digests: &[TransactionDigest],
+        output_object_keys: &[Vec<InputKey>],
         epoch_store: &AuthorityPerEpochStore,
     ) {
         {
@@ -554,34 +555,41 @@ impl TransactionManager {
             let _scope = monitored_scope("TransactionManager::notify_commit::wlock");
 
             if inner.epoch != epoch_store.epoch() {
-                warn!("Ignoring committed certificate from wrong epoch. Expected={} Actual={} CertificateDigest={:?}", inner.epoch, epoch_store.epoch(), digest);
-                return;
-            }
-            let Some(acquired_locks) = inner.executing_certificates.remove(digest) else {
-                trace!("{:?} not found in executing certificates, likely because it is a system transaction", digest);
-                return;
-            };
-            for (key, lock_mode) in acquired_locks {
-                if lock_mode == LockMode::Default {
-                    // Holders of default locks are not tracked.
-                    continue;
-                }
-                assert_eq!(lock_mode, LockMode::ReadOnly);
-                let lock_queue = inner.lock_waiters.get_mut(&key).unwrap();
-                assert!(
-                    lock_queue.readonly_holders.remove(digest),
-                    "Certificate {:?} not found among readonly lock holders",
-                    digest
+                warn!(
+                    "Ignoring committed transactions from wrong epoch. Expected={} Actual={}",
+                    inner.epoch,
+                    epoch_store.epoch()
                 );
-                for ready_cert in inner.try_acquire_lock(key) {
-                    self.certificate_ready(&mut inner, ready_cert);
-                }
+                return;
             }
-            self.metrics
-                .transaction_manager_num_executing_certificates
-                .set(inner.executing_certificates.len() as i64);
 
-            self.objects_available_locked(&mut inner, epoch_store, output_object_keys);
+            for (digest, output_object_keys) in izip!(digests, output_object_keys) {
+                let Some(acquired_locks) = inner.executing_certificates.remove(digest) else {
+                    trace!("{:?} not found in executing certificates, likely because it is a system transaction", digest);
+                    return;
+                };
+                for (key, lock_mode) in acquired_locks {
+                    if lock_mode == LockMode::Default {
+                        // Holders of default locks are not tracked.
+                        continue;
+                    }
+                    assert_eq!(lock_mode, LockMode::ReadOnly);
+                    let lock_queue = inner.lock_waiters.get_mut(&key).unwrap();
+                    assert!(
+                        lock_queue.readonly_holders.remove(digest),
+                        "Certificate {:?} not found among readonly lock holders",
+                        digest
+                    );
+                    for ready_cert in inner.try_acquire_lock(key) {
+                        self.certificate_ready(&mut inner, ready_cert);
+                    }
+                }
+                self.metrics
+                    .transaction_manager_num_executing_certificates
+                    .set(inner.executing_certificates.len() as i64);
+
+                self.objects_available_locked(&mut inner, epoch_store, output_object_keys);
+            }
 
             inner.maybe_shrink_capacity();
         }

@@ -809,38 +809,43 @@ impl AuthorityStore {
     /// version, and then writes objects, certificates, parents and clean up locks atomically.
     pub async fn update_state(
         &self,
-        inner_temporary_store: InnerTemporaryStore,
-        transaction: &VerifiedTransaction,
-        effects: &TransactionEffects,
+        inner_temporary_stores: &[InnerTemporaryStore],
+        transactions: &[VerifiedTransaction],
+        effects: &[TransactionEffects],
     ) -> SuiResult {
         let _locks = self
-            .acquire_read_locks_for_indirect_objects(&inner_temporary_store)
+            .acquire_read_locks_for_indirect_objects(inner_temporary_stores)
             .await;
+
         // Extract the new state from the execution
         let mut write_batch = self.perpetual_tables.transactions.batch();
 
-        // Store the certificate indexed by transaction digest
-        let transaction_digest = transaction.digest();
-        write_batch.insert_batch(
-            &self.perpetual_tables.transactions,
-            iter::once((transaction_digest, transaction.serializable_ref())),
-        )?;
-
-        // Add batched writes for objects and locks.
-        let effects_digest = effects.digest();
-        self.update_objects_and_locks(&mut write_batch, inner_temporary_store)
-            .await?;
-
-        // Store the signed effects of the transaction
-        // We can't write this until after sequencing succeeds (which happens in
-        // batch_update_objects), as effects_exists is used as a check in many places
-        // for "did the tx finish".
-        write_batch
-            .insert_batch(&self.perpetual_tables.effects, [(effects_digest, effects)])?
-            .insert_batch(
-                &self.perpetual_tables.executed_effects,
-                [(transaction_digest, effects_digest)],
+        for (inner_temporary_store, transaction, effects) in
+            izip!(inner_temporary_stores, transactions, effects)
+        {
+            // Store the certificate indexed by transaction digest
+            let transaction_digest = transaction.digest();
+            write_batch.insert_batch(
+                &self.perpetual_tables.transactions,
+                iter::once((transaction_digest, transaction.serializable_ref())),
             )?;
+
+            // Add batched writes for objects and locks.
+            let effects_digest = effects.digest();
+            self.update_objects_and_locks(&mut write_batch, inner_temporary_store)
+                .await?;
+
+            // Store the signed effects of the transaction
+            // We can't write this until after sequencing succeeds (which happens in
+            // batch_update_objects), as effects_exists is used as a check in many places
+            // for "did the tx finish".
+            write_batch
+                .insert_batch(&self.perpetual_tables.effects, [(effects_digest, effects)])?
+                .insert_batch(
+                    &self.perpetual_tables.executed_effects,
+                    [(transaction_digest, effects_digest)],
+                )?;
+        }
 
         // test crashing before writing the batch
         fail_point_async!("crash");
@@ -851,8 +856,10 @@ impl AuthorityStore {
         // test crashing before notifying
         fail_point_async!("crash");
 
-        self.executed_effects_notify_read
-            .notify(transaction_digest, effects);
+        for (transaction, effects) in izip!(transactions, effects) {
+            self.executed_effects_notify_read
+                .notify(transaction.digest(), effects);
+        }
 
         Ok(())
     }
@@ -860,7 +867,7 @@ impl AuthorityStore {
     /// Acquires read locks for affected indirect objects
     async fn acquire_read_locks_for_indirect_objects(
         &self,
-        inner_temporary_store: &InnerTemporaryStore,
+        inner_temporary_store: &[InnerTemporaryStore],
     ) -> Vec<RwLockGuard> {
         // locking is required to avoid potential race conditions with the pruner
         // potential race:
@@ -871,12 +878,16 @@ impl AuthorityStore {
         // read locks are sufficient because ref count increments are safe,
         // concurrent transaction executions produce independent ref count increments and don't corrupt the state
         let digests = inner_temporary_store
-            .written
             .iter()
-            .filter_map(|(_, (_, object, _))| {
-                let StoreObjectPair(_, indirect_object) =
-                    get_store_object_pair(object.clone(), self.indirect_objects_threshold);
-                indirect_object.map(|obj| obj.inner().digest())
+            .flat_map(|inner_temporary_store| {
+                inner_temporary_store
+                    .written
+                    .iter()
+                    .filter_map(|(_, (_, object, _))| {
+                        let StoreObjectPair(_, indirect_object) =
+                            get_store_object_pair(object.clone(), self.indirect_objects_threshold);
+                        indirect_object.map(|obj| obj.inner().digest())
+                    })
             })
             .collect();
         self.objects_lock_table.acquire_read_locks(digests).await
@@ -886,7 +897,7 @@ impl AuthorityStore {
     async fn update_objects_and_locks(
         &self,
         write_batch: &mut DBBatch,
-        inner_temporary_store: InnerTemporaryStore,
+        inner_temporary_store: &InnerTemporaryStore,
     ) -> SuiResult {
         let InnerTemporaryStore {
             objects,
@@ -964,7 +975,7 @@ impl AuthorityStore {
         let event_digest = events.digest();
         let events = events
             .data
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, e)| ((event_digest, i), e));
 
