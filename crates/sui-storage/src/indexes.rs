@@ -289,7 +289,7 @@ impl IndexStore {
         digest: &TransactionDigest,
         batch: &mut DBBatch,
         object_index_changes: &ObjectIndexChanges,
-        tx_coins: Option<TxCoins>,
+        tx_coins: Option<&TxCoins>,
     ) -> SuiResult<IndexStoreCacheUpdates> {
         // In production if this code path is hit, we should expect `tx_coins` to not be None.
         // However, in many tests today we do not distinguish validator and/or fullnode, so
@@ -436,7 +436,7 @@ impl IndexStore {
         object_index_changes: ObjectIndexChanges,
         digest: &TransactionDigest,
         timestamp_ms: u64,
-        tx_coins: Option<TxCoins>,
+        tx_coins: Option<&TxCoins>,
         loaded_child_objects: BTreeMap<ObjectID, SequenceNumber>,
     ) -> SuiResult<u64> {
         let sequence = self.next_sequence_number.fetch_add(1, Ordering::SeqCst);

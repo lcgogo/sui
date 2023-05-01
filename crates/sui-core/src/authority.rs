@@ -955,18 +955,6 @@ impl AuthorityState {
             .collect();
 
         let digests: Vec<_> = transactions.iter().map(|cert| *cert.digest()).collect();
-        //let digest = *certificate.digest();
-
-        //let events = inner_temporary_store.events.clone();
-
-        /*
-        let loaded_child_objects = if self.is_fullnode(epoch_store) {
-            // We only care about this for full nodes
-            inner_temporary_store.loaded_child_objects.clone()
-        } else {
-            BTreeMap::new()
-        };
-        */
 
         let tx_coins = self
             .commit_certificates(inner_temporary_stores, transactions, effects, epoch_store)
@@ -986,19 +974,16 @@ impl AuthorityState {
             .notify_commit(&digests, &output_keys, epoch_store);
 
         // index certificate
-        /*
         let _ = self
-            .post_process_one_tx(
+            .post_process_transactions(
                 transactions,
+                inner_temporary_stores,
                 effects,
-                &events,
                 epoch_store,
-                tx_coins,
-                loaded_child_objects,
+                tx_coins.as_deref(),
             )
             .await
             .tap_err(|e| error!("tx post processing failed: {e}"));
-        */
 
         // Update metrics.
         self.metrics.total_effects.inc();
@@ -1376,7 +1361,7 @@ impl AuthorityState {
         events: &TransactionEvents,
         timestamp_ms: u64,
         epoch_store: &Arc<AuthorityPerEpochStore>,
-        tx_coins: Option<TxCoins>,
+        tx_coins: Option<&TxCoins>,
         loaded_child_objects: BTreeMap<ObjectID, SequenceNumber>,
     ) -> SuiResult<u64> {
         let changes = self
@@ -1583,69 +1568,84 @@ impl AuthorityState {
     }
 
     #[instrument(level = "debug", skip_all, err)]
-    async fn post_process_one_tx(
+    async fn post_process_transactions(
         &self,
-        certificate: &VerifiedExecutableTransaction,
-        effects: &TransactionEffects,
-        events: &TransactionEvents,
+        transactions: &[VerifiedExecutableTransaction],
+        inner_temporary_stores: &[InnerTemporaryStore],
+        effects: &[TransactionEffects],
         epoch_store: &Arc<AuthorityPerEpochStore>,
-        tx_coins: Option<TxCoins>,
-        loaded_child_objects: BTreeMap<ObjectID, SequenceNumber>,
+        tx_coins: Option<&[TxCoins]>,
     ) -> SuiResult {
         if self.indexes.is_none() {
             return Ok(());
         }
 
-        let tx_digest = certificate.digest();
-        let timestamp_ms = Self::unixtime_now_ms();
-        // Index tx
-        if let Some(indexes) = &self.indexes {
-            let res = self
-                .index_tx(
-                    indexes.as_ref(),
-                    tx_digest,
-                    certificate,
-                    effects,
-                    events,
-                    timestamp_ms,
-                    epoch_store,
-                    tx_coins,
-                    loaded_child_objects,
-                )
-                .await
-                .tap_ok(|_| self.metrics.post_processing_total_tx_indexed.inc())
-                .tap_err(|e| error!(?tx_digest, "Post processing - Couldn't index tx: {e}"));
+        let coin_slice = tx_coins.unwrap_or(&[]);
 
-            // Emit events
-            if res.is_ok() {
-                self.event_handler
-                    .process_events(
-                        &effects.clone().try_into()?,
-                        &SuiTransactionBlockEvents::try_from(
-                            events.clone(),
-                            *tx_digest,
-                            Some(timestamp_ms),
-                            epoch_store.module_cache(),
-                        )?,
+        let tx_coins_iter = coin_slice
+            .iter()
+            .map(Some)
+            .chain(std::iter::repeat(None))
+            .take(transactions.len());
+
+        for (certificate, inner_temporary_store, effects, tx_coins) in
+            izip!(transactions, inner_temporary_stores, effects, tx_coins_iter)
+        {
+            let events = inner_temporary_store.events.clone();
+            let tx_digest = certificate.digest();
+            let timestamp_ms = Self::unixtime_now_ms();
+
+            let loaded_child_objects = inner_temporary_store.loaded_child_objects.clone();
+
+            // Index tx
+            if let Some(indexes) = &self.indexes {
+                let res = self
+                    .index_tx(
+                        indexes.as_ref(),
+                        tx_digest,
+                        certificate,
+                        effects,
+                        &events,
+                        timestamp_ms,
+                        epoch_store,
+                        tx_coins,
+                        loaded_child_objects,
                     )
                     .await
-                    .tap_ok(|_| {
-                        self.metrics
-                            .post_processing_total_tx_had_event_processed
-                            .inc()
-                    })
-                    .tap_err(|e| {
-                        warn!(
-                            ?tx_digest,
-                            "Post processing - Couldn't process events for tx: {}", e
-                        )
-                    })?;
+                    .tap_ok(|_| self.metrics.post_processing_total_tx_indexed.inc())
+                    .tap_err(|e| error!(?tx_digest, "Post processing - Couldn't index tx: {e}"));
 
-                self.metrics
-                    .post_processing_total_events_emitted
-                    .inc_by(events.data.len() as u64);
+                // Emit events
+                if res.is_ok() {
+                    self.event_handler
+                        .process_events(
+                            &effects.clone().try_into()?,
+                            &SuiTransactionBlockEvents::try_from(
+                                events.clone(),
+                                *tx_digest,
+                                Some(timestamp_ms),
+                                epoch_store.module_cache(),
+                            )?,
+                        )
+                        .await
+                        .tap_ok(|_| {
+                            self.metrics
+                                .post_processing_total_tx_had_event_processed
+                                .inc()
+                        })
+                        .tap_err(|e| {
+                            warn!(
+                                ?tx_digest,
+                                "Post processing - Couldn't process events for tx: {}", e
+                            )
+                        })?;
+
+                    self.metrics
+                        .post_processing_total_events_emitted
+                        .inc_by(events.data.len() as u64);
+                }
             }
-        };
+        }
         Ok(())
     }
 
