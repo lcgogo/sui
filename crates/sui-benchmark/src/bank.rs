@@ -111,11 +111,9 @@ impl BenchmarkBank {
         let recipient_addresses: Vec<SuiAddress> = coin_configs.iter().map(|g| g.address).collect();
         let amounts: Vec<u64> = coin_configs.iter().map(|c| c.amount).collect();
 
-        info!(
-            "Creating {} coin(s) of balance {}...",
-            amounts.len(),
-            amounts[0],
-        );
+        for amount in amounts.iter() {
+            info!("Creating coin of balance {}...", amount,);
+        }
 
         let verified_tx = make_pay_sui_transaction(
             init_coin.0,
@@ -166,6 +164,8 @@ impl BenchmarkBank {
                 Ok((c.0, address, keypair.clone()))
             })
             .collect();
+
+        println!("{:#?}", transferred_coins);
 
         transferred_coins
     }

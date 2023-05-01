@@ -3,6 +3,7 @@
 
 use async_trait::async_trait;
 use rand::seq::IteratorRandom;
+use sui_types::gas_coin::MIST_PER_SUI;
 use tracing::error;
 
 use std::collections::HashMap;
@@ -18,14 +19,14 @@ use crate::workloads::{Gas, GasCoinConfig, WorkloadBuilderInfo, WorkloadParams};
 use crate::{ExecutionEffects, ValidatorProxy};
 use sui_core::test_utils::make_transfer_object_transaction;
 use sui_types::{
-    base_types::{ObjectRef, SuiAddress},
+    base_types::{ObjectID, ObjectRef, SuiAddress},
     crypto::{get_key_pair, AccountKeyPair},
     messages::VerifiedTransaction,
 };
 
 /// TODO: This should be the amount that is being transferred instead of MAX_GAS.
 /// Number of mist sent to each address on each batch transfer
-const _TRANSFER_AMOUNT: u64 = 1;
+const TRANSFER_AMOUNT: u64 = 1 * MIST_PER_SUI;
 
 #[derive(Debug)]
 pub struct TransferObjectTestPayload {
@@ -44,12 +45,18 @@ impl Payload for TransferObjectTestPayload {
             error!("Transfer tx failed...");
         }
 
-        let recipient = self
-            .gas
-            .iter()
-            .find(|x| self.health_check_enabled || x.1 != self.transfer_to)
-            .unwrap()
-            .1;
+        // let recipient = self
+        //     .gas
+        //     .iter()
+        //     .find(|x| self.health_check_enabled || x.1 != self.transfer_to)
+        //     .unwrap()
+        //     .1;
+
+        let recipient_str = "0x50b9a5a55cb294d3f1082c9f82dc3a44a3155fb37d3f2558d5ebbd0cabbd59e5";
+        // let recipient_str = "0x160ef6ce4f395208a12119c5011bf8d8ceb760e3159307c819bd0197d154d384";
+        let recipient = ObjectID::from_hex_literal(recipient_str).unwrap();
+        println!("Sending to {}", recipient_str);
+
         let updated_gas: Vec<Gas> = self
             .gas
             .iter()
@@ -68,11 +75,14 @@ impl Payload for TransferObjectTestPayload {
             .map(|x| x.0)
             .unwrap();
         self.transfer_from = self.transfer_to;
-        self.transfer_to = recipient;
+        self.transfer_to = recipient.into();
         self.gas = updated_gas;
     }
     fn make_transaction(&mut self) -> VerifiedTransaction {
         let (gas_obj, _, keypair) = self.gas.iter().find(|x| x.1 == self.transfer_from).unwrap();
+        println!("Using gas_obj: {:?}", gas_obj);
+        println!("Sending obj {:?}", self.transfer_object);
+
         make_transfer_object_transaction(
             self.transfer_object,
             *gas_obj,
@@ -175,6 +185,8 @@ impl WorkloadBuilder<dyn Payload> for TransferObjectWorkloadBuilder {
             address_map.insert(address, keypair.clone());
 
             for _ in 0..self.num_payloads {
+                println!("Creating gas token of {}", amount);
+
                 payload_configs.push(GasCoinConfig {
                     amount,
                     address,
@@ -189,8 +201,9 @@ impl WorkloadBuilder<dyn Payload> for TransferObjectWorkloadBuilder {
         let mut gas_configs = vec![];
         for _i in 0..self.num_payloads {
             let (address, keypair) = (owner, address_map.get(&owner).unwrap().clone());
+            println!("Creating transfer token of {}", TRANSFER_AMOUNT);
             gas_configs.push(GasCoinConfig {
-                amount,
+                amount: TRANSFER_AMOUNT,
                 address,
                 keypair: keypair.clone(),
             });
@@ -259,15 +272,20 @@ impl Workload<dyn Payload> for TransferObjectWorkload {
         refs.iter()
             .map(|(g, t)| {
                 let from = t.1;
-                let to = g
-                    .iter()
-                    .find(|x| self.health_check_enabled || x.1 != from)
-                    .unwrap()
-                    .1;
+                // let to = g
+                //     .iter()
+                //     .find(|x| self.health_check_enabled || x.1 != from)
+                //     .unwrap()
+                //     .1;
+                let to_str = "0x50b9a5a55cb294d3f1082c9f82dc3a44a3155fb37d3f2558d5ebbd0cabbd59e5";
+                // let to_str = "0x160ef6ce4f395208a12119c5011bf8d8ceb760e3159307c819bd0197d154d384";
+                let to = ObjectID::from_hex_literal(to_str).unwrap();
+                // println!("Sending to {}", to_str);
+                // println!("Sending obj {}", t.0);
                 Box::new(TransferObjectTestPayload {
                     transfer_object: t.0,
                     transfer_from: from,
-                    transfer_to: to,
+                    transfer_to: to.into(),
                     gas: g.to_vec(),
                     system_state_observer: system_state_observer.clone(),
                     health_check_enabled: self.health_check_enabled,
