@@ -56,6 +56,7 @@ export function SelectQredoAccountsSummaryCard({
     const [searchTerm, setSearchTerm] = useState('');
     return (
         <SummaryCard
+            showBorder
             header="Select accounts"
             body={
                 <Loading loading={isLoading}>

@@ -62,6 +62,7 @@ export function QredoConnectInfoPage() {
             >
                 <div className="flex flex-1 flex-nowrap ">
                     <SummaryCard
+                        showBorder
                         header={showUntrustedWarning ? '' : 'More information'}
                         body={
                             showUntrustedWarning ? (
