@@ -9,7 +9,7 @@ import { RpcClientContext } from '@mysten/core';
 import { WalletKitProvider } from '@mysten/wallet-kit';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Fragment, useEffect, useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { Outlet, ScrollRestoration } from 'react-router-dom';
 
