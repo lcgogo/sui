@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as Sentry from '@sentry/react';
-import { createContext, useLayoutEffect, useMemo } from 'react';
+import { createContext, useEffect, useLayoutEffect, useMemo } from 'react';
 // eslint-disable-next-line no-restricted-imports
 import { useSearchParams } from 'react-router-dom';
 
@@ -37,14 +37,17 @@ export function useNetwork(): [string, (network: Network | string) => void] {
     }, [searchParams]);
 
     const setNetwork = (network: Network | string) => {
-        // When resetting the network, we reset the query client at the same time:
-        queryClient.cancelQueries();
-        queryClient.clear();
-
         setSearchParams({ network: network.toLowerCase() });
     };
 
-    useLayoutEffect(() => {
+    useEffect(() => {
+        // When the network changes (either from users changing the network manually or
+        // navigating back and forth between pages), we need to clear out our query cache
+        queryClient.cancelQueries();
+        queryClient.clear();
+    }, [network]);
+
+    useEffect(() => {
         growthbook.setAttributes({
             network,
             environment: import.meta.env.VITE_VERCEL_ENV,

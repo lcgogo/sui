@@ -28,10 +28,6 @@ export function Layout() {
     const jsonRpcProvider = useMemo(() => DefaultRpcClient(network), [network]);
     const networkOutage = useFeatureIsOn('explorer-network-outage');
 
-    useEffect(() => {
-        queryClient.clear();
-    }, [network]);
-
     usePageView();
 
     return (
