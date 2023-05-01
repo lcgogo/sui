@@ -852,7 +852,7 @@ impl<'vm, 'state, 'a, S: StorageView> ExecutionContext<'vm, 'state, 'a, S> {
     }
 }
 
-fn new_session<'state, 'vm, S: StorageView>(
+pub(crate) fn new_session<'state, 'vm, S: StorageView>(
     vm: &'vm MoveVM,
     linkage: LinkageView<'state, S>,
     input_objects: BTreeMap<ObjectID, Owner>,
@@ -865,6 +865,13 @@ fn new_session<'state, 'vm, S: StorageView>(
         linkage,
         new_native_extensions(store, input_objects, is_metered, protocol_config, metrics),
     )
+}
+
+pub(crate) fn new_session_for_linkage<'state, 'vm, S: StorageView>(
+    vm: &'vm MoveVM,
+    linkage: LinkageView<'state, S>,
+) -> Session<'state, 'vm, LinkageView<'state, S>> {
+    vm.new_session(linkage)
 }
 
 /// Set the link context for the session from the linkage information in the `package`.

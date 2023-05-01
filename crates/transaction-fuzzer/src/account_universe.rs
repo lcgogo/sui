@@ -134,8 +134,10 @@ pub fn assert_accounts_match(
                 .get_object(&acc_object.id())
                 .unwrap()
                 .unwrap();
+            // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+            //       or rework for traits in TypeLayoutResolver
             let total_sui_value =
-                object.get_total_sui(&executor.state.db()).unwrap() - object.storage_rebate;
+                object.get_total_sui_legacy(&executor.state.db()).unwrap() - object.storage_rebate;
             let account_balance_i = account.current_balances[balance_idx];
             prop_assert_eq!(
                 account_balance_i,

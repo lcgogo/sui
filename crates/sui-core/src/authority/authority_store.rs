@@ -11,6 +11,7 @@ use fastcrypto::hash::MultisetHash;
 use futures::stream::FuturesUnordered;
 use move_bytecode_utils::module_cache::GetModule;
 use move_core_types::resolver::ModuleResolver;
+// use move_vm_runtime::move_vm::MoveVM;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use sui_types::messages_checkpoint::ECMHLiveObjectSetDigest;
@@ -42,6 +43,7 @@ use crate::authority::epoch_start_configuration::{EpochFlag, EpochStartConfigura
 use super::authority_store_tables::LiveObject;
 use super::{authority_store_tables::AuthorityPerpetualTables, *};
 use mysten_common::sync::notify_read::NotifyRead;
+// use sui_adapter::type_layout_resolver::TypeLayoutResolver;
 use sui_storage::package_object_cache::PackageObjectCache;
 use sui_types::effects::{TransactionEffects, TransactionEvents};
 use sui_types::gas_coin::TOTAL_SUPPLY_MIST;
@@ -1499,8 +1501,9 @@ impl AuthorityStore {
                 .expect("Read sui system state object cannot fail")
                 .protocol_version(),
         );
+        let protocol_config = ProtocolConfig::get_for_version(protocol_version);
         // Prior to gas model v2, SUI conservation is not guaranteed.
-        if ProtocolConfig::get_for_version(protocol_version).gas_model_version() <= 1 {
+        if protocol_config.gas_model_version() <= 1 {
             return Ok(());
         }
 
@@ -1520,6 +1523,9 @@ impl AuthorityStore {
                             let mut task_objects = vec![];
                             mem::swap(&mut pending_objects, &mut task_objects);
                             let package_cache_clone = package_cache.clone();
+                            // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+                            //       or rework for traits in TypeLayoutResolver
+                            // let mut layout_resolver = TypeLayoutResolver::new(&move_vm, temporary_store, &protocol_config, metrics.clone());
                             pending_tasks.push(s.spawn(move || {
                                 let mut total_storage_rebate = 0;
                                 let mut total_sui = 0;
@@ -1528,7 +1534,7 @@ impl AuthorityStore {
                                     // get_total_sui includes storage rebate, however all storage rebate is
                                     // also stored in the storage fund, so we need to subtract it here.
                                     total_sui +=
-                                        object.get_total_sui(&package_cache_clone).unwrap()
+                                        object.get_total_sui_legacy(&package_cache_clone).unwrap()
                                             - object.storage_rebate;
                                 }
                                 if count % 50_000_000 == 0 {
@@ -1546,9 +1552,12 @@ impl AuthorityStore {
                 (init.0 + result.0, init.1 + result.1)
             })
         });
+        // let mut layout_resolver = TypeLayoutResolver::new(move_vm, self, &protocol_config);
         for object in pending_objects {
             total_storage_rebate += object.storage_rebate;
-            total_sui += object.get_total_sui(self).unwrap() - object.storage_rebate;
+            // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+            //       or rework for traits in TypeLayoutResolver
+            total_sui += object.get_total_sui_legacy(self).unwrap() - object.storage_rebate;
         }
         info!(
             "Scanned {} live objects, took {:?}",

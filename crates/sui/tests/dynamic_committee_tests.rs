@@ -253,8 +253,10 @@ impl StressTestRunner {
                     .unwrap();
                 let Some(object) = object_opt else { continue };
                 let struct_tag = object.struct_tag().unwrap();
+                // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+                //       or rework for traits in TypeLayoutResolver
                 let total_sui =
-                    object.get_total_sui(&state.database).unwrap() - object.storage_rebate;
+                    object.get_total_sui_legacy(&state.database).unwrap() - object.storage_rebate;
                 println!(">> {struct_tag} TOTAL_SUI: {total_sui}");
             }
 
@@ -266,8 +268,10 @@ impl StressTestRunner {
                     .unwrap()
                     .unwrap();
                 let struct_tag = object.struct_tag().unwrap();
+                // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+                //       or rework for traits in TypeLayoutResolver
                 let total_sui =
-                    object.get_total_sui(&state.database).unwrap() - object.storage_rebate;
+                    object.get_total_sui_legacy(&state.database).unwrap() - object.storage_rebate;
                 println!(">> {struct_tag} TOTAL_SUI: {total_sui}");
             }
 
@@ -279,8 +283,10 @@ impl StressTestRunner {
                     .unwrap()
                     .unwrap();
                 let struct_tag = object.struct_tag().unwrap();
+                // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+                //       or rework for traits in TypeLayoutResolver
                 let total_sui =
-                    object.get_total_sui(&state.database).unwrap() - object.storage_rebate;
+                    object.get_total_sui_legacy(&state.database).unwrap() - object.storage_rebate;
                 println!(">> {struct_tag} TOTAL_SUI: {total_sui}");
             }
         })
@@ -411,8 +417,10 @@ mod add_stake {
                 .get_created_object_of_type_name(effects, "StakedSui")
                 .await
                 .unwrap();
+            // TODO: hook up the TypeLayoutResolver. It may require some traits implementation
+            //       or rework for traits in TypeLayoutResolver
             let staked_amount =
-                object.get_total_sui(&runner.db().await).unwrap() - object.storage_rebate;
+                object.get_total_sui_legacy(&runner.db().await).unwrap() - object.storage_rebate;
             assert_eq!(staked_amount, self.stake_amount);
             assert_eq!(object.owner.get_owner_address().unwrap(), self.sender);
             runner.display_effects(effects);

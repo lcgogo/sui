@@ -217,7 +217,7 @@ impl SuiNode {
             &config.db_path().join("store"),
             Some(perpetual_options.options),
         ));
-        let empty_database = perpetual_tables
+        let is_genesis = perpetual_tables
             .database_is_empty()
             .expect("Database read should not fail at init.");
         let store = AuthorityStore::open(
@@ -255,7 +255,8 @@ impl SuiNode {
             &config.expensive_safety_check_config,
         );
 
-        if empty_database {
+        // the database is empty at genesis time
+        if is_genesis {
             // When we are opening the db table, the only time when it's safe to
             // check SUI conservation is at genesis. Otherwise we may be in the middle of
             // an epoch and the SUI conservation check will fail. This also initialize
