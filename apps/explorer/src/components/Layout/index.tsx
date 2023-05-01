@@ -9,7 +9,7 @@ import { RpcClientContext } from '@mysten/core';
 import { WalletKitProvider } from '@mysten/wallet-kit';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Fragment, useMemo } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { Outlet, ScrollRestoration } from 'react-router-dom';
 
@@ -27,6 +27,10 @@ export function Layout() {
     const [network, setNetwork] = useNetwork();
     const jsonRpcProvider = useMemo(() => DefaultRpcClient(network), [network]);
     const networkOutage = useFeatureIsOn('explorer-network-outage');
+
+    useEffect(() => {
+        queryClient.clear();
+    }, [network]);
 
     usePageView();
 
