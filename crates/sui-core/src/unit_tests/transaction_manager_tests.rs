@@ -8,8 +8,8 @@ use sui_types::{
     base_types::ObjectID,
     crypto::deterministic_random_account_key,
     digests::TransactionEffectsDigest,
-    messages::{CallArg, ObjectArg, TEST_ONLY_GAS_UNIT_FOR_GENERIC},
     object::Object,
+    transaction::{CallArg, ObjectArg, TEST_ONLY_GAS_UNIT_FOR_GENERIC},
     SUI_FRAMEWORK_OBJECT_ID,
 };
 use test_utils::messages::move_transaction;

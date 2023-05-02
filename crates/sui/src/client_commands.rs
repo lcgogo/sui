@@ -49,9 +49,9 @@ use sui_types::signature::GenericSignature;
 use sui_types::{
     base_types::{ObjectID, SuiAddress},
     gas_coin::GasCoin,
-    messages::Transaction,
     object::Owner,
     parse_sui_type_tag,
+    transaction::Transaction,
 };
 use tracing::info;
 

@@ -18,15 +18,15 @@ use sui_types::crypto::{
     AuthorityPublicKeyBytes, AuthoritySignInfo, KeypairTraits, Signature, Signer,
 };
 use sui_types::effects::SignedTransactionEffects;
-use sui_types::messages::CallArg;
-use sui_types::messages::TEST_ONLY_GAS_UNIT_FOR_GENERIC;
-use sui_types::messages::TEST_ONLY_GAS_UNIT_FOR_TRANSFER;
-use sui_types::messages::{
+use sui_types::object::{generate_test_gas_objects, Object};
+use sui_types::sui_system_state::SUI_SYSTEM_MODULE_NAME;
+use sui_types::transaction::CallArg;
+use sui_types::transaction::TEST_ONLY_GAS_UNIT_FOR_GENERIC;
+use sui_types::transaction::TEST_ONLY_GAS_UNIT_FOR_TRANSFER;
+use sui_types::transaction::{
     CertifiedTransaction, ObjectArg, TransactionData, VerifiedCertificate,
     VerifiedSignedTransaction, VerifiedTransaction,
 };
-use sui_types::object::{generate_test_gas_objects, Object};
-use sui_types::sui_system_state::SUI_SYSTEM_MODULE_NAME;
 use sui_types::utils::to_sender_signed_transaction;
 use sui_types::{
     SUI_FRAMEWORK_OBJECT_ID, SUI_SYSTEM_OBJECT_ID, SUI_SYSTEM_STATE_OBJECT_ID,

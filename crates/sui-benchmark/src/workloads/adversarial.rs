@@ -26,15 +26,15 @@ use strum::{EnumCount, IntoEnumIterator};
 use strum_macros::{EnumCount as EnumCountMacro, EnumIter};
 use sui_protocol_config::ProtocolConfig;
 use sui_types::effects::TransactionEffectsAPI;
-use sui_types::messages::Command;
-use sui_types::messages::{CallArg, ObjectArg};
+use sui_types::transaction::Command;
+use sui_types::transaction::{CallArg, ObjectArg};
 use sui_types::{base_types::ObjectID, object::Owner};
-use sui_types::{base_types::SuiAddress, crypto::get_key_pair, messages::VerifiedTransaction};
+use sui_types::{base_types::SuiAddress, crypto::get_key_pair, transaction::VerifiedTransaction};
 use sui_types::{
     base_types::{random_object_ref, ObjectRef},
-    messages::TEST_ONLY_GAS_UNIT_FOR_PUBLISH,
+    transaction::TEST_ONLY_GAS_UNIT_FOR_PUBLISH,
 };
-use sui_types::{messages::TransactionData, utils::to_sender_signed_transaction};
+use sui_types::{transaction::TransactionData, utils::to_sender_signed_transaction};
 use tracing::debug;
 
 use test_utils::messages::create_publish_move_package_transaction;

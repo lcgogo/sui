@@ -16,7 +16,7 @@ use sui_core::test_utils::make_transfer_sui_transaction;
 use sui_types::base_types::{ObjectRef, SuiAddress};
 use sui_types::crypto::{get_key_pair, AccountKeyPair};
 use sui_types::gas_coin::MIST_PER_SUI;
-use sui_types::messages::VerifiedTransaction;
+use sui_types::transaction::VerifiedTransaction;
 use test_utils::messages::make_staking_transaction;
 use tracing::error;
 

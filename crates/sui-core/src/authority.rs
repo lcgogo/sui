@@ -99,8 +99,8 @@ use sui_types::{
     crypto::AuthoritySignature,
     error::{SuiError, SuiResult},
     fp_ensure,
-    messages::*,
     object::{Object, ObjectFormatOptions, ObjectRead},
+    transaction::*,
     SUI_SYSTEM_ADDRESS,
 };
 use sui_types::{is_system_package, TypeTag};

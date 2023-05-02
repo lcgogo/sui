@@ -18,7 +18,7 @@ use std::sync::Arc;
 use sui_types::crypto::get_key_pair;
 use sui_types::{
     base_types::{ObjectDigest, ObjectID, SequenceNumber},
-    messages::VerifiedTransaction,
+    transaction::VerifiedTransaction,
 };
 use test_utils::messages::{make_counter_create_transaction, make_counter_increment_transaction};
 use tracing::{debug, error, info};

@@ -32,7 +32,7 @@ use sui_types::{
     base_types::*,
     committee::{Committee, ProtocolVersion},
     error::{SuiError, SuiResult},
-    messages::*,
+    transaction::*,
 };
 use thiserror::Error;
 use tracing::{debug, error, info, trace, warn, Instrument};

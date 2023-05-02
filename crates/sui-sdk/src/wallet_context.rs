@@ -16,7 +16,7 @@ use sui_json_rpc_types::{
 use sui_keys::keystore::AccountKeystore;
 use sui_types::base_types::{ObjectID, ObjectRef, SuiAddress};
 use sui_types::gas_coin::GasCoin;
-use sui_types::messages::VerifiedTransaction;
+use sui_types::transaction::VerifiedTransaction;
 use tokio::sync::RwLock;
 use tracing::warn;
 

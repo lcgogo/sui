@@ -9,7 +9,7 @@ use crate::ValidatorProxy;
 use std::path::PathBuf;
 use std::sync::Arc;
 use sui_types::base_types::ObjectRef;
-use sui_types::messages::{
+use sui_types::transaction::{
     TransactionData, VerifiedTransaction, TEST_ONLY_GAS_UNIT_FOR_PUBLISH,
     TEST_ONLY_GAS_UNIT_FOR_TRANSFER,
 };

@@ -5,7 +5,7 @@ use futures::{stream, StreamExt};
 use std::time::{Duration, SystemTime};
 use sui_core::authority_client::AuthorityAPI;
 use sui_core::consensus_adapter::position_submit_certificate;
-use sui_types::messages::{CallArg, ObjectArg, TEST_ONLY_GAS_UNIT_FOR_GENERIC};
+use sui_types::transaction::{CallArg, ObjectArg, TEST_ONLY_GAS_UNIT_FOR_GENERIC};
 use test_utils::authority::get_client;
 use test_utils::transaction::{
     publish_counter_package, submit_shared_object_transaction, submit_single_owner_transaction,
