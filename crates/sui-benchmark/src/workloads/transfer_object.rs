@@ -158,7 +158,7 @@ impl WorkloadBuilder<dyn Payload> for TransferObjectWorkloadBuilder {
         let mut address_map = HashMap::new();
         // Have to include not just the coins that are going to be created and sent
         // but the coin being used as gas as well.
-        let mut amount = TRANSFER_AMOUNT;
+        let mut amount = 10000000;
         // ESTIMATED_COMPUTATION_COST + STORAGE_COST_PER_COIN * (self.num_transfer_accounts + 1);
         if !self.health_check_enabled {
             amount = amount + MAX_GAS_FOR_TESTING;
