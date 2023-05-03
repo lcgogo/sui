@@ -27,6 +27,10 @@ module entry_point_vector::entry_point_vector {
         value: u64
     }
 
+    struct AnyStruct {
+        value: u64
+    }
+
     struct Any {}
 
     public entry fun mint(v: u64, ctx: &mut TxContext) {
@@ -131,6 +135,17 @@ module entry_point_vector::entry_point_vector {
             },
             tx_context::sender(ctx),
         )
+    }
+
+    public fun mint_and_return_any(_: &mut TxContext): AnyStruct {
+        AnyStruct { value: 42}
+    }
+
+    public fun destroy_struct_vec(v: vector<AnyStruct>, _: &mut TxContext) {
+        assert!(vector::length(&v) == 1, 0);
+        let AnyStruct {value} = vector::pop_back(&mut v);
+        assert!(value == 42, 0);
+        vector::destroy_empty(v);
     }
 
     public entry fun mint_another_any<Any>(v: u64, ctx: &mut TxContext) {

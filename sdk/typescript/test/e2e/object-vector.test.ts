@@ -74,6 +74,32 @@ describe('Test Move call with a vector of objects as input', () => {
     );
   });
 
+  it('Test struct vector', async () => {
+    const tx = new TransactionBlock();
+
+    let [anyStruct] = tx.moveCall({
+      target: `${packageId}::entry_point_vector::mint_and_return_any`,
+      arguments: [],
+    });
+
+    const vec = tx.makeMoveVec({
+      objects: [anyStruct],
+      type: `${packageId}::entry_point_vector::AnyStruct`,
+    });
+    tx.moveCall({
+      target: `${packageId}::entry_point_vector::destroy_struct_vec`,
+      arguments: [vec],
+    });
+
+    const result = await toolbox.signer.signAndExecuteTransactionBlock({
+      transactionBlock: tx,
+      options: {
+        showEffects: true,
+      },
+    });
+    expect(getExecutionStatusType(result)).toEqual('success');
+  });
+
   it('Test regular arg mixed with object vector arg', async () => {
     const coins = await toolbox.getGasObjectsOwnedByAddress();
     const coin = coins[3].data as SuiObjectData;

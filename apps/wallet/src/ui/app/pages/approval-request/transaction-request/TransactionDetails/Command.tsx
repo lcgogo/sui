@@ -11,7 +11,7 @@ import {
     type PublishTransaction,
     toB64,
     TypeTagSerializer,
-    TypeTag,
+    type TypeTag,
 } from '@mysten/sui.js';
 import { useState } from 'react';
 
