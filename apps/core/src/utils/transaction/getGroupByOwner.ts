@@ -4,6 +4,7 @@
 import {
     SuiObjectChangeCreated,
     SuiObjectChangeMutated,
+    SuiObjectChangePublished,
     SuiObjectChangeTransferred,
 } from '@mysten/sui.js';
 
