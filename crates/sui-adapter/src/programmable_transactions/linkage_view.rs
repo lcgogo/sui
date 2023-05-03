@@ -111,10 +111,10 @@ impl<S> LinkageView<S> {
             LinkageInfo::Unset => (),
             LinkageInfo::Universal => (),
             LinkageInfo::Set(existing) => {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "Attempt to overwrite linkage by restoring: {saved:#?} \
                      Existing linkage: {existing:#?}",
-                ))
+                )
             }
         }
 
@@ -133,11 +133,11 @@ impl<S> LinkageView<S> {
             LinkageInfo::Universal => return Ok(*context.id()),
 
             LinkageInfo::Set(existing) => {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "Attempt to overwrite linkage info with context from {}. \
                      Existing linkage: {existing:#?}",
                     context.id(),
-                ))
+                )
             }
         }
 
@@ -160,15 +160,15 @@ impl<S> LinkageView<S> {
         } in context.type_origin_table()
         {
             let Ok(module_name) = Identifier::from_str(module_name) else {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "Module name isn't an identifier: {module_name}"
-                ));
+                );
             };
 
             let Ok(struct_name) = Identifier::from_str(struct_name) else {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "Struct name isn't an identifier: {struct_name}"
-                ));
+                );
             };
 
             let runtime_id = ModuleId::new(runtime_id, module_name);
@@ -218,13 +218,13 @@ impl<S> LinkageView<S> {
 
             Entry::Occupied(entry) => {
                 if entry.get() != &*defining_id {
-                    invariant_violation!(format!(
+                    invariant_violation!(
                         "Conflicting defining ID for {}::{}: {} and {}",
                         runtime_id,
                         entry.key(),
                         defining_id,
                         entry.get(),
-                    ));
+                    );
                 }
             }
         }
@@ -260,9 +260,9 @@ impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
             LinkageInfo::Universal => return Ok(module_id.clone()),
 
             LinkageInfo::Unset => {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "No linkage context set while relocating {module_id}."
-                ))
+                )
             }
         };
 
@@ -277,10 +277,10 @@ impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
 
         let runtime_id = ObjectID::from_address(*module_id.address());
         let Some(upgrade) = linkage.link_table.get(&runtime_id) else {
-            invariant_violation!(format!(
+            invariant_violation!(
                 "Missing linkage for {runtime_id} in context {}, runtime_id is {}",
                 linkage.storage_id, linkage.runtime_id
-            ));
+            );
         };
 
         Ok(ModuleId::new(
@@ -299,9 +299,9 @@ impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
             LinkageInfo::Universal => return Ok(runtime_id.clone()),
 
             LinkageInfo::Unset => {
-                invariant_violation!(format!(
+                invariant_violation!(
                     "No linkage context set for defining module query on {runtime_id}::{struct_}."
-                ))
+                )
             }
         };
 
@@ -311,9 +311,9 @@ impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
 
         let storage_id = ObjectID::from(*self.relocate(runtime_id)?.address());
         let Some(package) = self.state_view.get_package(&storage_id)? else {
-            invariant_violation!(format!(
+            invariant_violation!(
                 "Missing dependent package in store: {storage_id}",
-            ))
+            )
         };
 
         for TypeOrigin {
@@ -328,10 +328,10 @@ impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
             }
         }
 
-        invariant_violation!(format!(
+        invariant_violation!(
             "{runtime_id}::{struct_} not found in type origin table in {storage_id} (v{})",
             package.version(),
-        ))
+        )
     }
 }
 

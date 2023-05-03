@@ -113,6 +113,7 @@ struct UpgradeStateRunner {
 
 impl UpgradeStateRunner {
     pub async fn new(base_package_name: &str) -> Self {
+        telemetry_subscribers::init_for_testing();
         let _dont_remove = ProtocolConfig::apply_overrides_for_testing(|_, mut config| {
             config.set_package_upgrades_for_testing(true);
             config
@@ -304,6 +305,7 @@ async fn test_upgrade_package_happy_path() {
 #[tokio::test]
 async fn test_upgrade_introduces_type_then_uses_it() {
     let mut runner = UpgradeStateRunner::new("move_upgrade/base").await;
+    let package_v1 = runner.package.0;
 
     // First upgrade introduces a new type, B.
     let (digest, modules) = build_upgrade_test_modules("new_object");
@@ -332,6 +334,11 @@ async fn test_upgrade_introduces_type_then_uses_it() {
 
     assert!(effects.status.is_ok(), "{:#?}", effects.status);
     let package_v3 = runner.package.0;
+
+    // TODO Remove
+    eprintln!("Package v1: {package_v1}");
+    eprintln!("Package v2: {package_v2}");
+    eprintln!("Package v3: {package_v3}");
 
     // Create an instance of the type introduced at version 2, with the function introduced at
     // version 3.

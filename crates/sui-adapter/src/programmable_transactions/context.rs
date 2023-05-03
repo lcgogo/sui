@@ -737,7 +737,7 @@ where
         for (id, delete_kind) in deletions {
             let version = match input_object_metadata.get(&id) {
                 Some(metadata) => {
-                    assert_invariant!(!matches!(metadata.owner, Owner::Immutable), format!("Attempting to delete immutable object {id} via delete kind {delete_kind}"));
+                    assert_invariant!(!matches!(metadata.owner, Owner::Immutable), "Attempting to delete immutable object {id} via delete kind {delete_kind}");
                     metadata.version
                 }
                 None => match state_view.get_latest_parent_entry_ref(id) {
@@ -745,7 +745,7 @@ where
                     // This object was not created this transaction but has never existed in
                     // storage, skip it.
                     Ok(None) => continue,
-                    Err(_) => invariant_violation!(missing_unwrapped_msg(&id)),
+                    Err(_) => invariant_violation!("{}", missing_unwrapped_msg(&id)),
                 },
             };
             object_changes.insert(id, ObjectChange::Delete(version, delete_kind));
@@ -1022,7 +1022,7 @@ where
 {
     let Some(obj) = state_view.read_object(&id) else {
         // protected by transaction input checker
-        invariant_violation!(format!("Object {} does not exist yet", id));
+        invariant_violation!("Object {} does not exist yet", id);
     };
     // override_as_immutable ==> Owner::Shared
     assert_invariant!(
@@ -1046,7 +1046,7 @@ where
     };
     let prev = object_owner_map.insert(id, obj.owner);
     // protected by transaction input checker
-    assert_invariant!(prev.is_none(), format!("Duplicate input object {}", id));
+    assert_invariant!(prev.is_none(), "Duplicate input object {}", id);
     let obj_value = ObjectValue::from_object(vm, session, obj)?;
     Ok(InputValue::new_object(object_metadata, obj_value))
 }
@@ -1185,7 +1185,7 @@ where
     let loaded_child_version_opt = loaded_child_objects.get(&id);
     assert_invariant!(
         metadata_opt.is_none() || loaded_child_version_opt.is_none(),
-        format!("Loaded {id} as a child, but that object was an input object")
+        "Loaded {id} as a child, but that object was an input object",
     );
 
     let old_obj_ver = metadata_opt
