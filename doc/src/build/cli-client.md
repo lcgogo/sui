@@ -1,5 +1,5 @@
 ---
-title: Sui Client CLI
+title: Sui Client CLI Devnet
 ---
 
 Learn how to set up, configure, and use the Sui Client Command Line Interface (CLI). You can use the CLI to experiment with Sui features using a command line interface.
