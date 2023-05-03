@@ -8,7 +8,7 @@ use move_binary_format::CompiledModule;
 use move_bytecode_utils::module_cache::GetModule;
 use move_core_types::account_address::AccountAddress;
 use move_core_types::language_storage::{ModuleId, StructTag};
-use move_core_types::resolver::{LinkageResolver, ModuleResolver, ResourceResolver};
+use move_core_types::resolver::{ModuleResolver, ResourceResolver};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sui_protocol_config::ProtocolConfig;
@@ -1510,7 +1510,7 @@ impl<S: ChildObjectResolver> Storage for TemporaryStore<S> {
     }
 }
 
-impl<S: BackingPackageStore> BackingPackageStore for TemporaryStore<S> {
+impl<S: BackingPackageStore> BackingPackageStore for &TemporaryStore<S> {
     fn get_package_object(&self, package_id: &ObjectID) -> SuiResult<Option<Object>> {
         if let Some((obj, _)) = self.written.get(package_id) {
             Ok(Some(obj.clone()))
@@ -1520,12 +1520,7 @@ impl<S: BackingPackageStore> BackingPackageStore for TemporaryStore<S> {
     }
 }
 
-/// TODO: Proper implementation of re-linking (currently the default implementation does nothing).
-impl<S> LinkageResolver for TemporaryStore<S> {
-    type Error = SuiError;
-}
-
-impl<S: BackingPackageStore> ModuleResolver for TemporaryStore<S> {
+impl<S: BackingPackageStore> ModuleResolver for &TemporaryStore<S> {
     type Error = SuiError;
     fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
         let package_id = &ObjectID::from(*module_id.address());
@@ -1554,7 +1549,7 @@ impl<S: BackingPackageStore> ModuleResolver for TemporaryStore<S> {
     }
 }
 
-impl<S> ResourceResolver for TemporaryStore<S> {
+impl<S> ResourceResolver for &TemporaryStore<S> {
     type Error = SuiError;
 
     fn get_resource(

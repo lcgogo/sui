@@ -415,7 +415,7 @@ fn execute_transaction<
         if !is_genesis_tx && !Mode::allow_arbitrary_values() {
             // ensure that this transaction did not create or destroy SUI, try to recover if the check fails
             let conservation_result = {
-                let mut layout_resolver = TypeLayoutResolver::new(move_vm, temporary_store);
+                let mut layout_resolver = TypeLayoutResolver::new(move_vm, &*temporary_store);
                 temporary_store.check_sui_conserved(advance_epoch_gas_summary, &mut layout_resolver, enable_expensive_checks)
             };
             if let Err(conservation_err) = conservation_result {
@@ -425,7 +425,7 @@ fn execute_transaction<
                 temporary_store.reset(gas, &mut gas_status);
                 temporary_store.charge_gas(gas_object_id, &mut gas_status, &mut result, gas);
                 // check conservation once more more
-                let mut layout_resolver = TypeLayoutResolver::new(move_vm, temporary_store);
+                let mut layout_resolver = TypeLayoutResolver::new(move_vm, &*temporary_store);
                 if let Err(recovery_err) = temporary_store.check_sui_conserved(advance_epoch_gas_summary, &mut layout_resolver, enable_expensive_checks) {
                     // if we still fail, it's a problem with gas
                     // charging that happens even in the "aborted" case--no other option but panic.

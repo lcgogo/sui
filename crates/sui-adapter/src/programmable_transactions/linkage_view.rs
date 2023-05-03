@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use super::types::StorageView;
 use move_core_types::{
     account_address::AccountAddress,
     identifier::{IdentStr, Identifier},
@@ -23,9 +22,9 @@ use sui_types::{
 
 /// Exposes module and linkage resolution to the Move runtime.  The first by delegating to
 /// `StorageView` and the second via linkage information that is loaded from a move package.
-pub struct LinkageView<'state, S> {
+pub struct LinkageView<S> {
     /// Immutable access to the store for the transaction.
-    state_view: &'state S,
+    state_view: S,
     /// Information used to change module and type identities during linkage.
     linkage_info: LinkageInfo,
     /// Cache containing the type origin information from every package that has been set as the
@@ -62,8 +61,8 @@ pub struct PackageLinkage {
 
 pub struct SavedLinkage(PackageLinkage);
 
-impl<'state, S> LinkageView<'state, S> {
-    pub fn new(state_view: &'state S, linkage_info: LinkageInfo) -> Self {
+impl<S> LinkageView<S> {
+    pub fn new(state_view: S, linkage_info: LinkageInfo) -> Self {
         Self {
             state_view,
             linkage_info,
@@ -179,8 +178,8 @@ impl<'state, S> LinkageView<'state, S> {
         Ok(runtime_id)
     }
 
-    pub fn storage(&self) -> &'state S {
-        self.state_view
+    pub fn storage(&self) -> &S {
+        &self.state_view
     }
 
     pub fn original_package_id(&self) -> Option<AccountAddress> {
@@ -244,7 +243,7 @@ impl From<&MovePackage> for PackageLinkage {
     }
 }
 
-impl<'state, S: BackingPackageStore> LinkageResolver for LinkageView<'state, S> {
+impl<S: BackingPackageStore> LinkageResolver for LinkageView<S> {
     type Error = SuiError;
 
     fn link_context(&self) -> AccountAddress {
@@ -336,9 +335,9 @@ impl<'state, S: BackingPackageStore> LinkageResolver for LinkageView<'state, S> 
     }
 }
 
-/** Remaining implementations delegated to StorageView ************************/
+/** Remaining implementations delegated to state_view *************************/
 
-impl<'state, S: StorageView> ResourceResolver for LinkageView<'state, S> {
+impl<S: ResourceResolver> ResourceResolver for LinkageView<S> {
     type Error = <S as ResourceResolver>::Error;
 
     fn get_resource(
@@ -350,7 +349,7 @@ impl<'state, S: StorageView> ResourceResolver for LinkageView<'state, S> {
     }
 }
 
-impl<'state, S: StorageView> ModuleResolver for LinkageView<'state, S> {
+impl<S: ModuleResolver> ModuleResolver for LinkageView<S> {
     type Error = <S as ModuleResolver>::Error;
 
     fn get_module(&self, id: &ModuleId) -> Result<Option<Vec<u8>>, Self::Error> {
