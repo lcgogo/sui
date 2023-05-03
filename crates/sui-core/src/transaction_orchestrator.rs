@@ -27,13 +27,12 @@ use sui_storage::write_path_pending_tx_log::WritePathPendingTransactionLog;
 use sui_types::base_types::TransactionDigest;
 use sui_types::effects::{TransactionEffectsAPI, VerifiedCertifiedTransactionEffects};
 use sui_types::error::{SuiError, SuiResult};
-use sui_types::messages::{
-    ExecuteTransactionRequest, ExecuteTransactionRequestType, ExecuteTransactionResponse,
-    FinalizedEffects, VerifiedExecutableTransaction,
-};
+use sui_types::executable_transaction::VerifiedExecutableTransaction;
 use sui_types::object::Object;
 use sui_types::quorum_driver_types::{
-    QuorumDriverEffectsQueueResult, QuorumDriverError, QuorumDriverResponse, QuorumDriverResult,
+    ExecuteTransactionRequest, ExecuteTransactionRequestType, ExecuteTransactionResponse,
+    FinalizedEffects, QuorumDriverEffectsQueueResult, QuorumDriverError, QuorumDriverResponse,
+    QuorumDriverResult,
 };
 use sui_types::sui_system_state::SuiSystemState;
 use tokio::sync::broadcast::error::RecvError;
@@ -50,7 +49,7 @@ const LOCAL_EXECUTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 const WAIT_FOR_FINALITY_TIMEOUT: Duration = Duration::from_secs(30);
 
-pub struct TransactiondOrchestrator<A> {
+pub struct TransactiondOrchestrator<A: Clone> {
     quorum_driver_handler: Arc<QuorumDriverHandler<A>>,
     validator_state: Arc<AuthorityState>,
     _local_executor_handle: JoinHandle<()>,

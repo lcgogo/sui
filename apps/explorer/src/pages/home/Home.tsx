@@ -5,7 +5,6 @@ import clsx from 'clsx';
 import { lazy, Suspense } from 'react';
 
 import { ErrorBoundary } from '../../components/error-boundary/ErrorBoundary';
-// import { RecentModulesCard } from '../../components/recent-packages-card/RecentPackagesCard';
 import { TopValidatorsCard } from '../../components/top-validators-card/TopValidatorsCard';
 
 import { Activity } from '~/components/Activity';
@@ -16,6 +15,7 @@ import { CurrentEpoch } from '~/components/HomeMetrics/CurrentEpoch';
 import { NetworkTPS } from '~/components/HomeMetrics/NetworkTPS';
 import { OnTheNetwork } from '~/components/HomeMetrics/OnTheNetwork';
 import { SuiTokenCard } from '~/components/SuiTokenCard';
+import { TopPackagesCard } from '~/components/top-packages/TopPackagesCard';
 import { Card } from '~/ui/Card';
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '~/ui/Tabs';
 
@@ -32,33 +32,42 @@ function Home() {
     return isHomePageRedesignEnabled ? (
         <div
             data-testid="home-page"
-            className="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-[200px,1fr] lg:grid-cols-[200px,454px,1fr]"
+            className={clsx('home-page-grid-container', {
+                'home-page-grid-container-with-sui-token':
+                    isSuiTokenCardEnabled,
+            })}
         >
-            <NetworkTPS />
-            {isSuiTokenCardEnabled && <SuiTokenCard />}
-            <div
-                className={clsx('overflow-hidden md:col-span-full', {
-                    'lg:col-span-2': !isSuiTokenCardEnabled,
-                    'lg:col-auto': isSuiTokenCardEnabled,
-                })}
-            >
+            <div style={{ gridArea: 'tps' }}>
+                <NetworkTPS />
+            </div>
+            {isSuiTokenCardEnabled && (
+                <div style={{ gridArea: 'sui-token' }}>
+                    <SuiTokenCard />
+                </div>
+            )}
+            <div style={{ gridArea: 'network' }} className="overflow-hidden">
                 <OnTheNetwork />
             </div>
-            <CurrentEpoch />
-            <div className="md:row-start-4 lg:row-start-3">
+            <div style={{ gridArea: 'epoch' }}>
+                <CurrentEpoch />
+            </div>
+            <div style={{ gridArea: 'checkpoint' }}>
                 <Checkpoint />
             </div>
-            <div className="md:row-start-3 md:row-end-5 lg:row-start-2 lg:row-end-4">
-                <GasPriceCard />
+            <div style={{ gridArea: 'gas-price' }}>
+                <GasPriceCard useLargeSpacing={!isSuiTokenCardEnabled} />
             </div>
-            <div className="md:col-span-full lg:col-auto lg:row-start-2 lg:row-end-4">
+            <div
+                style={{ gridArea: 'node-map' }}
+                className="h-[360px] xl:h-auto"
+            >
                 <ErrorBoundary>
                     <Suspense fallback={<Card height="full" />}>
                         <NodeMap minHeight="100%" />
                     </Suspense>
                 </ErrorBoundary>
             </div>
-            <div className="mt-5 md:col-span-full lg:col-span-2 lg:row-span-2">
+            <div style={{ gridArea: 'activity' }} className="mt-5">
                 <ErrorBoundary>
                     <Activity
                         initialLimit={TRANSACTIONS_LIMIT}
@@ -68,7 +77,8 @@ function Home() {
             </div>
             <div
                 data-testid="validators-table"
-                className="mt-5 md:col-span-full lg:col-auto"
+                style={{ gridArea: 'validators' }}
+                className="mt-5"
             >
                 <TabGroup size="lg">
                     <TabList>
@@ -83,10 +93,10 @@ function Home() {
                     </TabPanels>
                 </TabGroup>
             </div>
-            {/* TODO: Add the popular packages component here :) */}
-            {/* <div className="mt-5 bg-gray-60 md:col-span-full lg:col-auto">
-                Popular packages
-            </div> */}
+
+            <div style={{ gridArea: 'packages' }}>
+                <TopPackagesCard />
+            </div>
         </div>
     ) : (
         <div
@@ -107,8 +117,11 @@ function Home() {
                 <Activity initialLimit={TRANSACTIONS_LIMIT} disablePagination />
             </ErrorBoundary>
 
-            <div data-testid="validators-table">
-                <TabGroup>
+            <div
+                className="flex flex-col gap-y-3"
+                data-testid="validators-table"
+            >
+                <TabGroup size="lg">
                     <TabList>
                         <Tab>Validators</Tab>
                     </TabList>
@@ -120,21 +133,10 @@ function Home() {
                         </TabPanel>
                     </TabPanels>
                 </TabGroup>
+                <ErrorBoundary>
+                    <TopPackagesCard />
+                </ErrorBoundary>
             </div>
-            {/* <div>
-                    <TabGroup>
-                        <TabList>
-                            <Tab>Recent Packages</Tab>
-                        </TabList>
-                        <TabPanels>
-                            <TabPanel>
-                                <ErrorBoundary>
-                                    <RecentModulesCard />
-                                </ErrorBoundary>
-                            </TabPanel>
-                        </TabPanels>
-                    </TabGroup>
-            </div> */}
         </div>
     );
 }
